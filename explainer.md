@@ -1,15 +1,16 @@
 # GravitySensor Interface
 
 ## Introduction
-The **GravitySensor API** provides, the capability
+The **GravitySensor API** provides the capability
 to get a 3-axis reading of the gravity force to users.
 
 See also:
-* [The current specification](https://w3c.github.io/accelerometer/)
+* [The current specification](https://w3c.github.io/accelerometer/#gravitysensor-interface)
+* [Motion Sensors explainer](https://w3c.github.io/motion-sensors/)
 * [web.dev article](https://web.dev/generic-sensor/#gravity-sensor)
 
 ## Goals
-It is already possible for users to manually derive readings close
+It is possible for users to manually derive readings close
 to those of a gravity sensor by manually inspecting Accelerometer
 and LinearAccelerometer readings, but this can be cumbersome and depend
 on the accuracy of the values provided by those sensors.
@@ -19,22 +20,70 @@ on the user's hardware, and be easier to use in terms of API ergonomics.
 The GravitySensor returns the effect of acceleration along the device's X, Y, and Z axis due to gravity.
 
 ## API
-The following example shows how to use gravity sensor that provides readings
+The following example shows how to use GravitySensor to get readings
 in the screen coordinate system. The snippet will print message to the console
-when the dom screen is perpendicular to the ground and bottom of the rendered web page
-is pointing downwards.
+when the device screen is perpendicular to the ground and bottom 
+of the rendered web page is pointing downwards.
 
 ```js
 let sensor = new GravitySensor({frequency: 5, referenceFrame: "screen"});
 
-sensor.onreading = () => {
+sensor.addEventListener('reading', e => {
   if (sensor.y >= 9.8) {
     console.log("Web page is perpendicular to the ground.");
   }
-}
+});
 
 sensor.start();
 ```
+The following example implements a GravitySensor polyfill. It shows the complexity of extracting the gravity value from the Accelerometer and LinearAccelerationSensor interfaces, 
+in case both sensors are hardware-based sensors. In case there is no hardware-based LinearAccelerationSensor, 
+Chrome will implement some fusion logic based on the Accelerometer value and provide a less accurate value.
+In the example, a simplification shortcut has been made to listen only to accelerometer events and not to both sensors' events.
+```js
+class GravitySensor extends EventTarget {
+  #accelerometer = new Accelerometer();
+  #linearAccelerationSensor = new LinearAcceleration();
+  x = 0;
+  y = 0;
+  z = 0;
+
+  handleEvent(ev) {
+    this.timestamp = ev.timestamp;
+    this.x = this.#accelerometer.x - this.#linearAccelerationSensor.x;
+    this.y = this.#accelerometer.y - this.#linearAccelerationSensor.y;
+    this.z = this.#accelerometer.z - this.#linearAccelerationSensor.z;
+    const event = new Event("reading");
+    this.dispatchEvent(event);
+    this.onreading?.(event);
+  }
+
+  start() {
+    this.#accelerometer.addEventListener("reading", this);
+    this.#accelerometer.start();
+  }
+
+  stop() {
+    this.#accelerometer.removeEventListener("reading", this);
+    this.#accelerometer.stop();
+  }
+}
+
+g = new GravitySensor();
+g.onreading = () => console.log(g.x, g.y, g.z);
+g.start();
+```
+It is also possible to isolate directly the gravity from the accelerometer value, using a low-pass filter.
+```js
+// In this example, alpha is calculated as t / (t + dT),
+// where t is the low-pass filter's time-constant and
+// dT is the event delivery rate.
+const alpha = 0.8;
+gravity.x = alpha * gravity.x + (1 - alpha) * accelerometer.x;
+gravity.y = alpha * gravity.y + (1 - alpha) * accelerometer.y;
+gravity.z = alpha * gravity.z + (1 - alpha) * accelerometer.z;
+```
+
 Other examples can be found in [the current specification](https://w3c.github.io/accelerometer/#examples)
 
 ## Use cases
@@ -43,13 +92,11 @@ Other examples can be found in [the current specification](https://w3c.github.io
 
 ## Security considerations
 * Security considerations are already described in [the current specifications](https://w3c.github.io/accelerometer/#security-and-privacy)
-* To protect user privacy, in chrome, rounding sensor values to multiples of a reasonably small value is performed.
-This makes the readings slightly less accurate, but protects users from fingerprinting attacks which
-might allow a site to generate a unique id based on the sensor calibration data.
+* The Chrome implementation performs rounding of all sensor readings to avoid fingerprinting issues. As with Accelerometer and LinearAccelerometer, the GravitySensor readings are rounded to 0.1m/s^2
 
 ## Stakeholder Feedback / Opposition
 * Web developers: Positive, [Unity](https://unity.com/) has filled a [bug](https://crbug.com/1163993) for Chromium
-* Chromium: Positive
+* Chromium: [Positive](https://chromestatus.com/features/5384099747332096)
 * Edge: No Signal
 * Mozilla: Negative
-* Safari: Negative
+* Safari: [Negative](https://webkit.org/tracking-prevention/)
