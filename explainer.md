@@ -88,7 +88,11 @@ Other examples can be found in [the current specification](https://w3c.github.io
 
 ## Use cases
 
-**TO BE FILLED**
+Many causal mobile games which don't use touch input use a gravity sensor value to:
+* Steering a rolling ball through a maze (either tilting the maze, or changing the ball's direction)
+* Turn a vehicle by tilting the device left and right through traffic.
+* Creating a "spirit-level" balance game where you have to balance objects by adjusting the device to change the gravity reading.
+* Observing changes in the gravity sensor reading can indicate a swing motion of the device for a golf game
 
 ## Security considerations
 * Security considerations are already described in [the current specifications](https://w3c.github.io/accelerometer/#security-and-privacy)
